@@ -30,6 +30,12 @@ type TodoSeed = {
   completed?: boolean;
 };
 
+type TodoManagementTableProps = {
+  profileId: string;
+  profileName: string;
+  defaultTodos?: TodoSeed[];
+};
+
 function createInitialTodos(profileName: string, defaultTodos?: TodoSeed[]): TodoItem[] {
   if (defaultTodos && defaultTodos.length > 0) {
     return defaultTodos.map((todo, index) => ({
@@ -42,8 +48,20 @@ function createInitialTodos(profileName: string, defaultTodos?: TodoSeed[]): Tod
   }
 
   return [
-    { id: 1, title: `${profileName}の初回カウンセリング準備`, createdAt: "2026-04-10", note: "", completed: false },
-    { id: 2, title: `${profileName}のトレーニングメニュー見直し`, createdAt: "2026-04-11", note: "", completed: false },
+    {
+      id: 1,
+      title: `${profileName}の初回カウンセリング準備`,
+      createdAt: "2026-04-10",
+      note: "",
+      completed: false,
+    },
+    {
+      id: 2,
+      title: `${profileName}のトレーニングメニュー見直し`,
+      createdAt: "2026-04-11",
+      note: "",
+      completed: false,
+    },
   ];
 }
 
@@ -63,15 +81,12 @@ function loadTodos(storageKey: string, initialTodos: TodoItem[]): TodoItem[] {
   }
 }
 
-type TodoManagementTableProps = {
-  profileId: string;
-  profileName: string;
-  defaultTodos?: TodoSeed[];
-};
-
 export function TodoManagementTable({ profileId, profileName, defaultTodos }: TodoManagementTableProps) {
   const storageKey = `${STORAGE_KEY_PREFIX}${profileId}`;
-  const initialTodos = useMemo(() => createInitialTodos(profileName, defaultTodos), [profileName, defaultTodos]);
+  const initialTodos = useMemo(
+    () => createInitialTodos(profileName, defaultTodos),
+    [profileName, defaultTodos],
+  );
   const [todos, setTodos] = useState<TodoItem[]>(initialTodos);
   const [hydrated, setHydrated] = useState(false);
   const [title, setTitle] = useState("");
@@ -99,16 +114,19 @@ export function TodoManagementTable({ profileId, profileName, defaultTodos }: To
     return Math.max(...todos.map((todo) => todo.id)) + 1;
   }, [todos]);
 
+  const activeTodo = useMemo(
+    () => todos.find((todo) => todo.id === activeTodoId) ?? null,
+    [todos, activeTodoId],
+  );
+
   const handleAddTodo = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const normalizedTitle = title.trim();
-
     if (!normalizedTitle) {
       return;
     }
 
     const createdAt = new Date().toISOString().slice(0, 10);
-
     setTodos((prev) => [
       ...prev,
       {
@@ -156,11 +174,6 @@ export function TodoManagementTable({ profileId, profileName, defaultTodos }: To
       prev.map((todo) => (todo.id === id ? { ...todo, completed: !todo.completed } : todo)),
     );
   };
-
-  const activeTodo = useMemo(
-    () => todos.find((todo) => todo.id === activeTodoId) ?? null,
-    [todos, activeTodoId],
-  );
 
   return (
     <section id="todo" className="section section-animate">
@@ -210,39 +223,39 @@ export function TodoManagementTable({ profileId, profileName, defaultTodos }: To
                 </tr>
               ) : (
                 todos.map((todo) => (
-                  <tr key={todo.id}>
-                    <td>{todo.id}</td>
-                    <td>
-                      <button
-                        type="button"
-                        className="todo-table__task-trigger"
-                        onClick={() => openTodoDetail(todo)}
-                      >
-                        {todo.title}
-                      </button>
-                    </td>
-                    <td>{todo.createdAt}</td>
-                    <td>{todo.completed ? "完了" : "未完了"}</td>
-                    <td>{todo.note ? "あり" : "-"}</td>
-                    <td>
-                      <button
-                        type="button"
-                        className="todo-table__delete"
-                        onClick={() => handleToggleCompleted(todo.id)}
-                      >
-                        {todo.completed ? "未完了に戻す" : "完了"}
-                      </button>
-                      <button
-                        type="button"
-                        className="todo-table__delete"
-                        onClick={() => handleDeleteTodo(todo.id)}
-                        style={{ marginLeft: "0.5rem" }}
-                      >
-                        削除
-                      </button>
-                    </td>
-                  </tr>
-                ))
+                    <tr key={todo.id}>
+                      <td>{todo.id}</td>
+                      <td>
+                        <button
+                          type="button"
+                          className="todo-table__task-trigger"
+                          onClick={() => openTodoDetail(todo)}
+                        >
+                          {todo.title}
+                        </button>
+                      </td>
+                      <td>{todo.createdAt}</td>
+                      <td>{todo.completed ? "完了" : "未完了"}</td>
+                      <td>{todo.note ? "あり" : "-"}</td>
+                      <td>
+                        <button
+                          type="button"
+                          className="todo-table__delete"
+                          onClick={() => handleToggleCompleted(todo.id)}
+                        >
+                          {todo.completed ? "未完了に戻す" : "完了"}
+                        </button>
+                        <button
+                          type="button"
+                          className="todo-table__delete"
+                          onClick={() => handleDeleteTodo(todo.id)}
+                          style={{ marginLeft: "0.5rem" }}
+                        >
+                          削除
+                        </button>
+                      </td>
+                    </tr>
+                  ))
               )}
             </tbody>
           </table>
@@ -285,10 +298,18 @@ export function TodoManagementTable({ profileId, profileName, defaultTodos }: To
                 placeholder="このタスクのメモを入力"
               />
               <div className="todo-modal__actions">
-                <button type="button" className="todo-modal__button todo-modal__button--ghost" onClick={closeTodoDetail}>
+                <button
+                  type="button"
+                  className="todo-modal__button todo-modal__button--ghost"
+                  onClick={closeTodoDetail}
+                >
                   閉じる
                 </button>
-                <button type="button" className="todo-modal__button todo-modal__button--primary" onClick={handleSaveNote}>
+                <button
+                  type="button"
+                  className="todo-modal__button todo-modal__button--primary"
+                  onClick={handleSaveNote}
+                >
                   保存
                 </button>
               </div>

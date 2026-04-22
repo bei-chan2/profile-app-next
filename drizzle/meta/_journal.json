@@ -8,6 +8,13 @@
       "when": 1773672231487,
       "tag": "0000_parched_sue_storm",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1776875999549,
+      "tag": "0001_talented_master_chief",
+      "breakpoints": true
     }
   ]
 }
