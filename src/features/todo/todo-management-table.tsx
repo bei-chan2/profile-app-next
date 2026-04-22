@@ -8,30 +8,51 @@ type TodoItem = {
   title: string;
   createdAt: string;
   note: string;
+  completed: boolean;
 };
 
-const STORAGE_KEY = "profile-app:todos";
-
-const initialTodos: TodoItem[] = [
-  { id: 1, title: "初回カウンセリングの準備", createdAt: "2026-04-10", note: "" },
-  { id: 2, title: "トレーニングメニューの見直し", createdAt: "2026-04-11", note: "" },
-];
+const STORAGE_KEY_PREFIX = "profile-app:todos:";
 
 const todoItemSchema = z.object({
   id: z.number(),
   title: z.string(),
   createdAt: z.string(),
   note: z.string().optional().default(""),
+  completed: z.boolean().optional().default(false),
 });
 
 const todosSchema = z.array(todoItemSchema);
 
-function loadTodos(): TodoItem[] {
+type TodoSeed = {
+  title: string;
+  createdAt: string;
+  note?: string;
+  completed?: boolean;
+};
+
+function createInitialTodos(profileName: string, defaultTodos?: TodoSeed[]): TodoItem[] {
+  if (defaultTodos && defaultTodos.length > 0) {
+    return defaultTodos.map((todo, index) => ({
+      id: index + 1,
+      title: todo.title,
+      createdAt: todo.createdAt,
+      note: todo.note ?? "",
+      completed: todo.completed ?? false,
+    }));
+  }
+
+  return [
+    { id: 1, title: `${profileName}の初回カウンセリング準備`, createdAt: "2026-04-10", note: "", completed: false },
+    { id: 2, title: `${profileName}のトレーニングメニュー見直し`, createdAt: "2026-04-11", note: "", completed: false },
+  ];
+}
+
+function loadTodos(storageKey: string, initialTodos: TodoItem[]): TodoItem[] {
   if (typeof window === "undefined") {
     return initialTodos;
   }
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(storageKey);
     if (!raw) {
       return initialTodos;
     }
@@ -42,7 +63,15 @@ function loadTodos(): TodoItem[] {
   }
 }
 
-export function TodoManagementTable() {
+type TodoManagementTableProps = {
+  profileId: string;
+  profileName: string;
+  defaultTodos?: TodoSeed[];
+};
+
+export function TodoManagementTable({ profileId, profileName, defaultTodos }: TodoManagementTableProps) {
+  const storageKey = `${STORAGE_KEY_PREFIX}${profileId}`;
+  const initialTodos = useMemo(() => createInitialTodos(profileName, defaultTodos), [profileName, defaultTodos]);
   const [todos, setTodos] = useState<TodoItem[]>(initialTodos);
   const [hydrated, setHydrated] = useState(false);
   const [title, setTitle] = useState("");
@@ -51,17 +80,17 @@ export function TodoManagementTable() {
 
   useEffect(() => {
     queueMicrotask(() => {
-      setTodos(loadTodos());
+      setTodos(loadTodos(storageKey, initialTodos));
       setHydrated(true);
     });
-  }, []);
+  }, [storageKey, initialTodos]);
 
   useEffect(() => {
     if (!hydrated) {
       return;
     }
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(todos));
-  }, [todos, hydrated]);
+    localStorage.setItem(storageKey, JSON.stringify(todos));
+  }, [todos, hydrated, storageKey]);
 
   const nextId = useMemo(() => {
     if (todos.length === 0) {
@@ -87,6 +116,7 @@ export function TodoManagementTable() {
         title: normalizedTitle,
         createdAt,
         note: "",
+        completed: false,
       },
     ]);
     setTitle("");
@@ -121,6 +151,12 @@ export function TodoManagementTable() {
     closeTodoDetail();
   };
 
+  const handleToggleCompleted = (id: number) => {
+    setTodos((prev) =>
+      prev.map((todo) => (todo.id === id ? { ...todo, completed: !todo.completed } : todo)),
+    );
+  };
+
   const activeTodo = useMemo(
     () => todos.find((todo) => todo.id === activeTodoId) ?? null,
     [todos, activeTodoId],
@@ -131,7 +167,7 @@ export function TodoManagementTable() {
       <div className="section__inner">
         <h2 className="section__title">
           <span className="section__title-en">To Do</span>
-          <span className="section__title-ja">To Do 管理テーブル</span>
+          <span className="section__title-ja">{profileName} の To Do 管理テーブル</span>
         </h2>
 
         <form className="todo-form" onSubmit={handleAddTodo}>
@@ -160,6 +196,7 @@ export function TodoManagementTable() {
                 <th>ID</th>
                 <th>タスク</th>
                 <th>作成日</th>
+                <th>状態</th>
                 <th>メモ</th>
                 <th>操作</th>
               </tr>
@@ -167,7 +204,7 @@ export function TodoManagementTable() {
             <tbody>
               {todos.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="todo-table__empty">
+                  <td colSpan={6} className="todo-table__empty">
                     タスクはありません。
                   </td>
                 </tr>
@@ -185,12 +222,21 @@ export function TodoManagementTable() {
                       </button>
                     </td>
                     <td>{todo.createdAt}</td>
+                    <td>{todo.completed ? "完了" : "未完了"}</td>
                     <td>{todo.note ? "あり" : "-"}</td>
                     <td>
                       <button
                         type="button"
                         className="todo-table__delete"
+                        onClick={() => handleToggleCompleted(todo.id)}
+                      >
+                        {todo.completed ? "未完了に戻す" : "完了"}
+                      </button>
+                      <button
+                        type="button"
+                        className="todo-table__delete"
                         onClick={() => handleDeleteTodo(todo.id)}
+                        style={{ marginLeft: "0.5rem" }}
                       >
                         削除
                       </button>
