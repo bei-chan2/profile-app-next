@@ -238,21 +238,22 @@ export function TodoManagementTable({ profileId, profileName, defaultTodos }: To
                       <td>{todo.completed ? "完了" : "未完了"}</td>
                       <td>{todo.note ? "あり" : "-"}</td>
                       <td>
-                        <button
-                          type="button"
-                          className="todo-table__delete"
-                          onClick={() => handleToggleCompleted(todo.id)}
-                        >
-                          {todo.completed ? "未完了に戻す" : "完了"}
-                        </button>
-                        <button
-                          type="button"
-                          className="todo-table__delete"
-                          onClick={() => handleDeleteTodo(todo.id)}
-                          style={{ marginLeft: "0.5rem" }}
-                        >
-                          削除
-                        </button>
+                        <div className="todo-table__actions">
+                          <button
+                            type="button"
+                            className="todo-table__delete"
+                            onClick={() => handleToggleCompleted(todo.id)}
+                          >
+                            {todo.completed ? "未完了に戻す" : "完了"}
+                          </button>
+                          <button
+                            type="button"
+                            className="todo-table__delete"
+                            onClick={() => handleDeleteTodo(todo.id)}
+                          >
+                            削除
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type ChangeEvent } from "react";
+import { useEffect, useState, type ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import type { Profile } from "@/features/profile/profile-data";
@@ -96,10 +96,13 @@ function isProfileList(value: unknown): value is Profile[] {
 
 export function ProfileEditorClient({ baseProfiles }: ProfileEditorClientProps) {
   const router = useRouter();
-  const initialProfiles = useMemo(() => loadProfiles(baseProfiles), [baseProfiles]);
-  const [profiles, setProfiles] = useState<Profile[]>(initialProfiles);
+  const [profiles, setProfiles] = useState<Profile[]>(baseProfiles);
   const [form, setForm] = useState<ProfileFormState>(() => toFormState());
   const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    setProfiles(loadProfiles(baseProfiles));
+  }, [baseProfiles]);
 
   const saveAndReflect = (nextProfiles: Profile[], nextMessage: string) => {
     setProfiles(nextProfiles);
@@ -150,19 +153,16 @@ export function ProfileEditorClient({ baseProfiles }: ProfileEditorClientProps) 
   };
 
   return (
-    <main className="mx-auto min-h-screen w-full max-w-5xl px-6 py-10 md:px-10">
-      <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+    <main className="ui-shell min-h-screen">
+      <section className="ui-card">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-bold md:text-3xl">プロフィール新規登録</h1>
-            <p className="mt-2 text-sm text-slate-600">
+            <h1 className="ui-title">プロフィール新規登録</h1>
+            <p className="ui-subtitle">
               この画面では新規アカウントの登録のみ行えます。
             </p>
           </div>
-          <Link
-            href="/profiles"
-            className="inline-flex rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100"
-          >
+          <Link href="/profiles" className="ui-btn-secondary">
             プロフィール選択へ戻る
           </Link>
         </div>
@@ -171,55 +171,55 @@ export function ProfileEditorClient({ baseProfiles }: ProfileEditorClientProps) 
           <input
             value={form.id}
             onChange={(event) => setForm((prev) => ({ ...prev, id: event.target.value }))}
-            className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            className="ui-input"
             placeholder="ID（任意）"
           />
           <input
             value={form.name}
             onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))}
-            className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            className="ui-input"
             placeholder="名前"
           />
           <input
             value={form.role}
             onChange={(event) => setForm((prev) => ({ ...prev, role: event.target.value }))}
-            className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            className="ui-input"
             placeholder="職業"
           />
           <input
             value={form.age}
             onChange={(event) => setForm((prev) => ({ ...prev, age: event.target.value }))}
-            className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            className="ui-input"
             placeholder="年齢"
           />
           <input
             value={form.catchCopy}
             onChange={(event) => setForm((prev) => ({ ...prev, catchCopy: event.target.value }))}
-            className="rounded-lg border border-slate-300 px-3 py-2 text-sm md:col-span-2"
+            className="ui-input md:col-span-2"
             placeholder="キャッチコピー"
           />
           <textarea
             value={form.about1}
             onChange={(event) => setForm((prev) => ({ ...prev, about1: event.target.value }))}
-            className="min-h-20 rounded-lg border border-slate-300 px-3 py-2 text-sm md:col-span-2"
+            className="ui-textarea md:col-span-2"
             placeholder="自己紹介 1"
           />
           <textarea
             value={form.about2}
             onChange={(event) => setForm((prev) => ({ ...prev, about2: event.target.value }))}
-            className="min-h-20 rounded-lg border border-slate-300 px-3 py-2 text-sm md:col-span-2"
+            className="ui-textarea md:col-span-2"
             placeholder="自己紹介 2"
           />
           <textarea
             value={form.about3}
             onChange={(event) => setForm((prev) => ({ ...prev, about3: event.target.value }))}
-            className="min-h-20 rounded-lg border border-slate-300 px-3 py-2 text-sm md:col-span-2"
+            className="ui-textarea md:col-span-2"
             placeholder="自己紹介 3"
           />
           <input
             value={form.tags}
             onChange={(event) => setForm((prev) => ({ ...prev, tags: event.target.value }))}
-            className="rounded-lg border border-slate-300 px-3 py-2 text-sm md:col-span-2"
+            className="ui-input md:col-span-2"
             placeholder="タグ（カンマ区切り）"
           />
         </div>
@@ -228,11 +228,11 @@ export function ProfileEditorClient({ baseProfiles }: ProfileEditorClientProps) 
           <button
             type="button"
             onClick={handleSubscribe}
-            className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700"
+            className="ui-btn-primary"
           >
             新規登録
           </button>
-          <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-100">
+          <label className="ui-btn-secondary cursor-pointer gap-2">
             JSONをインポート
             <input type="file" accept=".json,application/json" className="hidden" onChange={handleImport} />
           </label>

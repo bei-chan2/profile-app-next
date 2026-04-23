@@ -1,7 +1,7 @@
 "use client";
 
 import type { CSSProperties } from "react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
@@ -20,10 +20,10 @@ type ProfileDetailViewProps = {
 
 export function ProfileDetailView({ profileId, baseProfiles }: ProfileDetailViewProps) {
   const router = useRouter();
-  const initialProfiles = useMemo(() => loadProfiles(baseProfiles), [baseProfiles]);
-  const [profiles, setProfiles] = useState<Profile[]>(initialProfiles);
+  const [profiles, setProfiles] = useState<Profile[]>(baseProfiles);
   const [message, setMessage] = useState("");
   const [isEditDeleteOpen, setIsEditDeleteOpen] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [editForm, setEditForm] = useState({
     name: "",
     role: "",
@@ -38,6 +38,10 @@ export function ProfileDetailView({ profileId, baseProfiles }: ProfileDetailView
   const displayProfile = useMemo(() => {
     return profiles.find((profile) => profile.id === profileId) ?? null;
   }, [profiles, profileId]);
+
+  useEffect(() => {
+    setProfiles(loadProfiles(baseProfiles));
+  }, [baseProfiles]);
   const specialties = displayProfile?.specialties ?? [
     "ダイエット・体重管理",
     "筋トレ・ボディメイク",
@@ -140,7 +144,19 @@ export function ProfileDetailView({ profileId, baseProfiles }: ProfileDetailView
           <a href="#hero" className="site-nav__brand">
             {displayProfile.name}
           </a>
-          <ul className="site-nav__links">
+          <button
+            type="button"
+            className="site-nav__menu-toggle"
+            onClick={() => setIsMobileMenuOpen((prev) => !prev)}
+            aria-expanded={isMobileMenuOpen}
+            aria-controls="profile-nav-links"
+          >
+            {isMobileMenuOpen ? "メニューを閉じる" : "メニューを開く"}
+          </button>
+          <ul
+            id="profile-nav-links"
+            className={`site-nav__links ${isMobileMenuOpen ? "site-nav__links--open" : ""}`}
+          >
             <li>
               <Link href="/profiles">プロフィール選択へ戻る</Link>
             </li>
@@ -379,6 +395,15 @@ export function ProfileDetailView({ profileId, baseProfiles }: ProfileDetailView
           </section>
         ) : null}
       </main>
+
+      <nav className="mobile-bottom-nav" aria-label="モバイルページ内ナビゲーション">
+        <a href="#hero">Top</a>
+        <a href="#about">About</a>
+        <a href="#todo">To Do</a>
+        <button type="button" onClick={() => setIsEditDeleteOpen((prev) => !prev)}>
+          {isEditDeleteOpen ? "edit閉じる" : "edit/delete"}
+        </button>
+      </nav>
 
       <footer className="site-footer section-animate" style={stagger(6)}>
         <p className="site-footer__copy">&copy; 2026 {displayProfile.name}</p>

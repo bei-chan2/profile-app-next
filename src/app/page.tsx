@@ -26,11 +26,11 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   }
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-md items-center px-6 py-10">
-      <section className="w-full rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-        <p className="text-sm font-semibold tracking-wide text-slate-500">PROFILE APP</p>
-        <h1 className="mt-2 text-2xl font-bold">ログイン</h1>
-        <p className="mt-2 text-sm text-slate-600">
+    <main className="ui-shell flex min-h-screen max-w-md items-center">
+      <section className="ui-card w-full">
+        <p className="text-xs font-semibold tracking-[0.16em] text-indigo-500">PROFILE APP</p>
+        <h1 className="ui-title mt-2">ログイン</h1>
+        <p className="ui-subtitle">
           アカウント情報を入力して、プロフィール選択画面に進んでください。
         </p>
 
@@ -44,7 +44,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
               name="email"
               type="text"
               required
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none ring-0 focus:border-slate-500"
+              className="ui-input"
               placeholder="メールアドレスまたはユーザーネーム"
             />
           </div>
@@ -57,7 +57,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
               name="password"
               type="password"
               required
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none ring-0 focus:border-slate-500"
+              className="ui-input"
               placeholder="********"
             />
           </div>
@@ -68,7 +68,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
           ) : null}
           <button
             type="submit"
-            className="inline-flex w-full items-center justify-center rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-700"
+            className="ui-btn-primary w-full py-2.5"
           >
             ログインして進む
           </button>
