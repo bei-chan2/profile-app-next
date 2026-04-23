@@ -15,6 +15,13 @@
       "when": 1776875999549,
       "tag": "0001_talented_master_chief",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1776961528149,
+      "tag": "0002_condemned_thor_girl",
+      "breakpoints": true
     }
   ]
 }

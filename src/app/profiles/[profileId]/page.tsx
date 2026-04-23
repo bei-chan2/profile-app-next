@@ -1,7 +1,7 @@
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { isAuthenticated } from "@/features/auth/simple-auth";
 import { ProfileDetailView } from "@/features/profile/profile-detail-view";
-import { profiles } from "@/features/profile/profile-data";
+import { getProfile } from "@/features/profile/profile-service";
 
 type ProfileDetailPageProps = {
   params: Promise<{
@@ -16,5 +16,10 @@ export default async function ProfileDetailPage({ params }: ProfileDetailPagePro
   }
 
   const { profileId } = await params;
-  return <ProfileDetailView profileId={profileId} baseProfiles={profiles} />;
+  const profile = await getProfile(profileId);
+  if (!profile) {
+    notFound();
+  }
+
+  return <ProfileDetailView profile={profile} />;
 }

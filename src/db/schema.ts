@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { boolean, pgEnum, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { boolean, integer, pgEnum, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 
 export const appRoleEnum = pgEnum("app_role", ["admin", "member"]);
 export const userStatusEnum = pgEnum("user_status", ["active", "suspended", "invited"]);
@@ -33,3 +33,23 @@ export const todos = pgTable("todos", {
 
 export type Todo = typeof todos.$inferSelect;
 export type NewTodo = typeof todos.$inferInsert;
+
+export const profiles = pgTable("profiles", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  imagePath: text("image_path"),
+  role: text("role").notNull(),
+  age: text("age").notNull(),
+  catchCopy: text("catch_copy").notNull(),
+  about: text("about").array().notNull(),
+  tags: text("tags").array().notNull(),
+  specialties: text("specialties").array(),
+  hobbies: text("hobbies").array(),
+  credentials: text("credentials").array(),
+  sortOrder: integer("sort_order").notNull().default(0),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().default(sql`now()`),
+});
+
+export type DbProfile = typeof profiles.$inferSelect;
+export type NewDbProfile = typeof profiles.$inferInsert;

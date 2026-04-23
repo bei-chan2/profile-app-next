@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { isAuthenticated } from "@/features/auth/simple-auth";
 import { ProfileSelectionClient } from "@/features/profile/profile-selection-client";
-import { profiles } from "@/features/profile/profile-data";
+import { getProfiles } from "@/features/profile/profile-service";
 
 export default async function ProfileSelectionPage() {
   const authenticated = await isAuthenticated();
@@ -9,9 +9,11 @@ export default async function ProfileSelectionPage() {
     redirect("/");
   }
 
+  const profiles = await getProfiles();
+
   return (
     <main className="mx-auto min-h-screen w-full max-w-5xl px-6 py-10 md:px-10">
-      <ProfileSelectionClient baseProfiles={profiles} />
+      <ProfileSelectionClient profiles={profiles} />
     </main>
   );
 }

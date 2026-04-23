@@ -1,14 +1,8 @@
 "use client";
 
-import { useEffect, useState, type ChangeEvent } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import type { Profile } from "@/features/profile/profile-data";
-import { loadProfiles, saveProfiles } from "@/features/profile/profile-storage";
-
-type ProfileEditorClientProps = {
-  baseProfiles: Profile[];
-};
 
 type ProfileFormState = {
   id: string;
@@ -22,133 +16,58 @@ type ProfileFormState = {
   tags: string;
 };
 
-function toFormState(profile?: Profile): ProfileFormState {
-  if (!profile) {
-    return {
-      id: "",
-      name: "",
-      role: "",
-      age: "",
-      catchCopy: "",
-      about1: "",
-      about2: "",
-      about3: "",
-      tags: "",
-    };
-  }
+const emptyForm: ProfileFormState = {
+  id: "",
+  name: "",
+  role: "",
+  age: "",
+  catchCopy: "",
+  about1: "",
+  about2: "",
+  about3: "",
+  tags: "",
+};
 
-  return {
-    id: profile.id,
-    name: profile.name,
-    role: profile.role,
-    age: profile.age,
-    catchCopy: profile.catchCopy,
-    about1: profile.about[0] ?? "",
-    about2: profile.about[1] ?? "",
-    about3: profile.about[2] ?? "",
-    tags: profile.tags.join(", "),
-  };
-}
-
-function makeProfileId(name: string): string {
-  const normalized = name
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-  return normalized || `profile-${Date.now()}`;
-}
-
-function fromFormState(form: ProfileFormState, fallbackId?: string): Profile {
-  const candidateId = form.id.trim() || makeProfileId(form.name);
-  const id = fallbackId || candidateId;
-
-  return {
-    id,
-    name: form.name.trim(),
-    role: form.role.trim(),
-    age: form.age.trim(),
-    catchCopy: form.catchCopy.trim(),
-    about: [form.about1.trim(), form.about2.trim(), form.about3.trim()],
-    tags: form.tags
-      .split(",")
-      .map((tag) => tag.trim())
-      .filter(Boolean),
-  };
-}
-
-function isProfileList(value: unknown): value is Profile[] {
-  return Array.isArray(value) && value.every((item) => {
-    if (!item || typeof item !== "object") {
-      return false;
-    }
-    const candidate = item as Record<string, unknown>;
-    return (
-      typeof candidate.id === "string" &&
-      typeof candidate.name === "string" &&
-      typeof candidate.role === "string" &&
-      typeof candidate.age === "string" &&
-      typeof candidate.catchCopy === "string" &&
-      Array.isArray(candidate.about) &&
-      Array.isArray(candidate.tags)
-    );
-  });
-}
-
-export function ProfileEditorClient({ baseProfiles }: ProfileEditorClientProps) {
+export function ProfileEditorClient() {
   const router = useRouter();
-  const [profiles, setProfiles] = useState<Profile[]>(baseProfiles);
-  const [form, setForm] = useState<ProfileFormState>(() => toFormState());
+  const [form, setForm] = useState<ProfileFormState>(emptyForm);
   const [message, setMessage] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
-  useEffect(() => {
-    setProfiles(loadProfiles(baseProfiles));
-  }, [baseProfiles]);
-
-  const saveAndReflect = (nextProfiles: Profile[], nextMessage: string) => {
-    setProfiles(nextProfiles);
-    saveProfiles(nextProfiles);
-    setMessage(nextMessage);
-  };
-
-  const handleSubscribe = () => {
+  const handleSubscribe = async () => {
     if (!form.name.trim() || !form.role.trim()) {
       setMessage("名前と職業は必須です。");
       return;
     }
 
-    const nextProfile = fromFormState(form);
-    const nextProfiles = [...profiles, nextProfile];
-
-    saveAndReflect(nextProfiles, "新規登録しました。プロフィール選択画面に戻ります。");
-    router.push("/profiles");
-  };
-
-  const handleImport = async (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) {
-      return;
-    }
-
-    const text = await file.text();
+    setSubmitting(true);
     try {
-      const parsed = JSON.parse(text);
-      const list = Array.isArray(parsed) ? parsed : parsed?.profiles;
-      if (!isProfileList(list)) {
-        setMessage("JSON形式が正しくありません。");
-        return;
+      const res = await fetch("/api/profiles", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: form.id.trim() || undefined,
+          name: form.name.trim(),
+          role: form.role.trim(),
+          age: form.age.trim(),
+          catchCopy: form.catchCopy.trim(),
+          about: [form.about1.trim(), form.about2.trim(), form.about3.trim()].filter(Boolean),
+          tags: form.tags
+            .split(",")
+            .map((t) => t.trim())
+            .filter(Boolean),
+        }),
+      });
+
+      if (res.ok) {
+        router.push("/profiles");
+        router.refresh();
+      } else {
+        const data = await res.json();
+        setMessage(data.error ?? "登録に失敗しました。");
       }
-
-      const importedProfiles = list.map((profile) => ({
-        ...profile,
-        about: [...profile.about, "", ""].slice(0, 3),
-        tags: profile.tags.map((tag) => String(tag).trim()).filter(Boolean),
-      }));
-
-      saveAndReflect(importedProfiles, "JSONをインポートしました。");
-      setForm(toFormState());
-      event.target.value = "";
-    } catch {
-      setMessage("JSONの読み込みに失敗しました。");
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -158,9 +77,7 @@ export function ProfileEditorClient({ baseProfiles }: ProfileEditorClientProps) 
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h1 className="ui-title">プロフィール新規登録</h1>
-            <p className="ui-subtitle">
-              この画面では新規アカウントの登録のみ行えます。
-            </p>
+            <p className="ui-subtitle">この画面では新規アカウントの登録のみ行えます。</p>
           </div>
           <Link href="/profiles" className="ui-btn-secondary">
             プロフィール選択へ戻る
@@ -170,55 +87,55 @@ export function ProfileEditorClient({ baseProfiles }: ProfileEditorClientProps) 
         <div className="mt-5 grid gap-3 md:grid-cols-2">
           <input
             value={form.id}
-            onChange={(event) => setForm((prev) => ({ ...prev, id: event.target.value }))}
+            onChange={(e) => setForm((prev) => ({ ...prev, id: e.target.value }))}
             className="ui-input"
             placeholder="ID（任意）"
           />
           <input
             value={form.name}
-            onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))}
+            onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
             className="ui-input"
             placeholder="名前"
           />
           <input
             value={form.role}
-            onChange={(event) => setForm((prev) => ({ ...prev, role: event.target.value }))}
+            onChange={(e) => setForm((prev) => ({ ...prev, role: e.target.value }))}
             className="ui-input"
             placeholder="職業"
           />
           <input
             value={form.age}
-            onChange={(event) => setForm((prev) => ({ ...prev, age: event.target.value }))}
+            onChange={(e) => setForm((prev) => ({ ...prev, age: e.target.value }))}
             className="ui-input"
             placeholder="年齢"
           />
           <input
             value={form.catchCopy}
-            onChange={(event) => setForm((prev) => ({ ...prev, catchCopy: event.target.value }))}
+            onChange={(e) => setForm((prev) => ({ ...prev, catchCopy: e.target.value }))}
             className="ui-input md:col-span-2"
             placeholder="キャッチコピー"
           />
           <textarea
             value={form.about1}
-            onChange={(event) => setForm((prev) => ({ ...prev, about1: event.target.value }))}
+            onChange={(e) => setForm((prev) => ({ ...prev, about1: e.target.value }))}
             className="ui-textarea md:col-span-2"
             placeholder="自己紹介 1"
           />
           <textarea
             value={form.about2}
-            onChange={(event) => setForm((prev) => ({ ...prev, about2: event.target.value }))}
+            onChange={(e) => setForm((prev) => ({ ...prev, about2: e.target.value }))}
             className="ui-textarea md:col-span-2"
             placeholder="自己紹介 2"
           />
           <textarea
             value={form.about3}
-            onChange={(event) => setForm((prev) => ({ ...prev, about3: event.target.value }))}
+            onChange={(e) => setForm((prev) => ({ ...prev, about3: e.target.value }))}
             className="ui-textarea md:col-span-2"
             placeholder="自己紹介 3"
           />
           <input
             value={form.tags}
-            onChange={(event) => setForm((prev) => ({ ...prev, tags: event.target.value }))}
+            onChange={(e) => setForm((prev) => ({ ...prev, tags: e.target.value }))}
             className="ui-input md:col-span-2"
             placeholder="タグ（カンマ区切り）"
           />
@@ -228,14 +145,11 @@ export function ProfileEditorClient({ baseProfiles }: ProfileEditorClientProps) 
           <button
             type="button"
             onClick={handleSubscribe}
-            className="ui-btn-primary"
+            disabled={submitting}
+            className="ui-btn-primary disabled:opacity-50"
           >
-            新規登録
+            {submitting ? "登録中..." : "新規登録"}
           </button>
-          <label className="ui-btn-secondary cursor-pointer gap-2">
-            JSONをインポート
-            <input type="file" accept=".json,application/json" className="hidden" onChange={handleImport} />
-          </label>
           {message ? <p className="text-sm text-slate-600">{message}</p> : null}
         </div>
       </section>

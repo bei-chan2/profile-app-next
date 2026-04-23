@@ -1,150 +1,77 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
-import { z } from "zod";
+import { FormEvent, useEffect, useState } from "react";
 
 type TodoItem = {
-  id: number;
+  id: string;
   title: string;
   createdAt: string;
   note: string;
   completed: boolean;
 };
 
-const STORAGE_KEY_PREFIX = "profile-app:todos:";
-
-const todoItemSchema = z.object({
-  id: z.number(),
-  title: z.string(),
-  createdAt: z.string(),
-  note: z.string().optional().default(""),
-  completed: z.boolean().optional().default(false),
-});
-
-const todosSchema = z.array(todoItemSchema);
-
-type TodoSeed = {
-  title: string;
-  createdAt: string;
-  note?: string;
-  completed?: boolean;
-};
-
 type TodoManagementTableProps = {
   profileId: string;
   profileName: string;
-  defaultTodos?: TodoSeed[];
 };
 
-function createInitialTodos(profileName: string, defaultTodos?: TodoSeed[]): TodoItem[] {
-  if (defaultTodos && defaultTodos.length > 0) {
-    return defaultTodos.map((todo, index) => ({
-      id: index + 1,
-      title: todo.title,
-      createdAt: todo.createdAt,
-      note: todo.note ?? "",
-      completed: todo.completed ?? false,
-    }));
-  }
-
-  return [
-    {
-      id: 1,
-      title: `${profileName}の初回カウンセリング準備`,
-      createdAt: "2026-04-10",
-      note: "",
-      completed: false,
-    },
-    {
-      id: 2,
-      title: `${profileName}のトレーニングメニュー見直し`,
-      createdAt: "2026-04-11",
-      note: "",
-      completed: false,
-    },
-  ];
-}
-
-function loadTodos(storageKey: string, initialTodos: TodoItem[]): TodoItem[] {
-  if (typeof window === "undefined") {
-    return initialTodos;
-  }
-  try {
-    const raw = localStorage.getItem(storageKey);
-    if (!raw) {
-      return initialTodos;
-    }
-    const parsed: unknown = JSON.parse(raw);
-    return todosSchema.parse(parsed);
-  } catch {
-    return initialTodos;
-  }
-}
-
-export function TodoManagementTable({ profileId, profileName, defaultTodos }: TodoManagementTableProps) {
-  const storageKey = `${STORAGE_KEY_PREFIX}${profileId}`;
-  const initialTodos = useMemo(
-    () => createInitialTodos(profileName, defaultTodos),
-    [profileName, defaultTodos],
-  );
-  const [todos, setTodos] = useState<TodoItem[]>(initialTodos);
-  const [hydrated, setHydrated] = useState(false);
+export function TodoManagementTable({ profileId, profileName }: TodoManagementTableProps) {
+  const [todos, setTodos] = useState<TodoItem[]>([]);
+  const [loading, setLoading] = useState(true);
   const [title, setTitle] = useState("");
-  const [activeTodoId, setActiveTodoId] = useState<number | null>(null);
+  const [activeTodoId, setActiveTodoId] = useState<string | null>(null);
   const [noteDraft, setNoteDraft] = useState("");
 
   useEffect(() => {
-    queueMicrotask(() => {
-      setTodos(loadTodos(storageKey, initialTodos));
-      setHydrated(true);
-    });
-  }, [storageKey, initialTodos]);
+    let cancelled = false;
 
-  useEffect(() => {
-    if (!hydrated) {
-      return;
+    async function load() {
+      setLoading(true);
+      try {
+        const res = await fetch(`/api/todos?profileId=${encodeURIComponent(profileId)}`);
+        if (res.ok && !cancelled) {
+          const data: TodoItem[] = await res.json();
+          setTodos(data);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     }
-    localStorage.setItem(storageKey, JSON.stringify(todos));
-  }, [todos, hydrated, storageKey]);
 
-  const nextId = useMemo(() => {
-    if (todos.length === 0) {
-      return 1;
-    }
-    return Math.max(...todos.map((todo) => todo.id)) + 1;
-  }, [todos]);
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [profileId]);
 
-  const activeTodo = useMemo(
-    () => todos.find((todo) => todo.id === activeTodoId) ?? null,
-    [todos, activeTodoId],
-  );
+  const activeTodo = todos.find((t) => t.id === activeTodoId) ?? null;
 
-  const handleAddTodo = (event: FormEvent<HTMLFormElement>) => {
+  const handleAddTodo = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const normalizedTitle = title.trim();
-    if (!normalizedTitle) {
-      return;
-    }
+    if (!normalizedTitle) return;
 
-    const createdAt = new Date().toISOString().slice(0, 10);
-    setTodos((prev) => [
-      ...prev,
-      {
-        id: nextId,
-        title: normalizedTitle,
-        createdAt,
-        note: "",
-        completed: false,
-      },
-    ]);
-    setTitle("");
+    const res = await fetch("/api/todos", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ profileId, title: normalizedTitle, note: "", completed: false }),
+    });
+
+    if (res.ok) {
+      const created: TodoItem = await res.json();
+      setTodos((prev) => [...prev, created]);
+      setTitle("");
+    }
   };
 
-  const handleDeleteTodo = (id: number) => {
-    setTodos((prev) => prev.filter((todo) => todo.id !== id));
-    if (activeTodoId === id) {
-      setActiveTodoId(null);
-      setNoteDraft("");
+  const handleDeleteTodo = async (id: string) => {
+    const res = await fetch(`/api/todos/${id}`, { method: "DELETE" });
+    if (res.ok) {
+      setTodos((prev) => prev.filter((t) => t.id !== id));
+      if (activeTodoId === id) {
+        setActiveTodoId(null);
+        setNoteDraft("");
+      }
     }
   };
 
@@ -158,21 +85,36 @@ export function TodoManagementTable({ profileId, profileName, defaultTodos }: To
     setNoteDraft("");
   };
 
-  const handleSaveNote = () => {
-    if (activeTodoId === null) {
-      return;
-    }
+  const handleSaveNote = async () => {
+    if (activeTodoId === null) return;
 
-    setTodos((prev) =>
-      prev.map((todo) => (todo.id === activeTodoId ? { ...todo, note: noteDraft.trim() } : todo)),
-    );
-    closeTodoDetail();
+    const res = await fetch(`/api/todos/${activeTodoId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ note: noteDraft.trim() }),
+    });
+
+    if (res.ok) {
+      const updated: TodoItem = await res.json();
+      setTodos((prev) => prev.map((t) => (t.id === activeTodoId ? updated : t)));
+      closeTodoDetail();
+    }
   };
 
-  const handleToggleCompleted = (id: number) => {
-    setTodos((prev) =>
-      prev.map((todo) => (todo.id === id ? { ...todo, completed: !todo.completed } : todo)),
-    );
+  const handleToggleCompleted = async (id: string) => {
+    const todo = todos.find((t) => t.id === id);
+    if (!todo) return;
+
+    const res = await fetch(`/api/todos/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ completed: !todo.completed }),
+    });
+
+    if (res.ok) {
+      const updated: TodoItem = await res.json();
+      setTodos((prev) => prev.map((t) => (t.id === id ? updated : t)));
+    }
   };
 
   return (
@@ -193,7 +135,7 @@ export function TodoManagementTable({ profileId, profileName, defaultTodos }: To
               type="text"
               className="todo-form__input"
               value={title}
-              onChange={(event) => setTitle(event.target.value)}
+              onChange={(e) => setTitle(e.target.value)}
               placeholder="追加するタスクを入力"
             />
             <button type="submit" className="todo-form__submit">
@@ -203,28 +145,31 @@ export function TodoManagementTable({ profileId, profileName, defaultTodos }: To
         </form>
 
         <div className="todo-table-wrap">
-          <table className="todo-table">
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>タスク</th>
-                <th>作成日</th>
-                <th>状態</th>
-                <th>メモ</th>
-                <th>操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              {todos.length === 0 ? (
+          {loading ? (
+            <p className="py-6 text-center text-sm text-slate-500">読み込み中...</p>
+          ) : (
+            <table className="todo-table">
+              <thead>
                 <tr>
-                  <td colSpan={6} className="todo-table__empty">
-                    タスクはありません。
-                  </td>
+                  <th>No.</th>
+                  <th>タスク</th>
+                  <th>作成日</th>
+                  <th>状態</th>
+                  <th>メモ</th>
+                  <th>操作</th>
                 </tr>
-              ) : (
-                todos.map((todo) => (
+              </thead>
+              <tbody>
+                {todos.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="todo-table__empty">
+                      タスクはありません。
+                    </td>
+                  </tr>
+                ) : (
+                  todos.map((todo, index) => (
                     <tr key={todo.id}>
-                      <td>{todo.id}</td>
+                      <td>{index + 1}</td>
                       <td>
                         <button
                           type="button"
@@ -257,9 +202,10 @@ export function TodoManagementTable({ profileId, profileName, defaultTodos }: To
                       </td>
                     </tr>
                   ))
-              )}
-            </tbody>
-          </table>
+                )}
+              </tbody>
+            </table>
+          )}
         </div>
 
         {activeTodo ? (
@@ -269,16 +215,12 @@ export function TodoManagementTable({ profileId, profileName, defaultTodos }: To
               role="dialog"
               aria-modal="true"
               aria-labelledby="todo-detail-title"
-              onClick={(event) => event.stopPropagation()}
+              onClick={(e) => e.stopPropagation()}
             >
               <h3 id="todo-detail-title" className="todo-modal__title">
                 タスク詳細
               </h3>
               <dl className="todo-modal__meta">
-                <div>
-                  <dt>ID</dt>
-                  <dd>{activeTodo.id}</dd>
-                </div>
                 <div>
                   <dt>タスク名</dt>
                   <dd>{activeTodo.title}</dd>
@@ -295,7 +237,7 @@ export function TodoManagementTable({ profileId, profileName, defaultTodos }: To
                 id="todo-note"
                 className="todo-modal__textarea"
                 value={noteDraft}
-                onChange={(event) => setNoteDraft(event.target.value)}
+                onChange={(e) => setNoteDraft(e.target.value)}
                 placeholder="このタスクのメモを入力"
               />
               <div className="todo-modal__actions">

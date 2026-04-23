@@ -1,20 +1,24 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import type { Profile } from "@/features/profile/profile-data";
-import { loadProfiles } from "@/features/profile/profile-storage";
 
 type ProfileSelectionClientProps = {
-  baseProfiles: Profile[];
+  profiles: Profile[];
 };
 
-export function ProfileSelectionClient({ baseProfiles }: ProfileSelectionClientProps) {
-  const [profiles, setProfiles] = useState<Profile[]>(baseProfiles);
+export function ProfileSelectionClient({ profiles: initialProfiles }: ProfileSelectionClientProps) {
+  const [profiles, setProfiles] = useState<Profile[]>(initialProfiles);
 
-  useEffect(() => {
-    setProfiles(loadProfiles(baseProfiles));
-  }, [baseProfiles]);
+  const handleDelete = async (id: string, name: string) => {
+    if (!window.confirm(`「${name}」を削除しますか？`)) return;
+
+    const res = await fetch(`/api/profiles/${id}`, { method: "DELETE" });
+    if (res.ok) {
+      setProfiles((prev) => prev.filter((p) => p.id !== id));
+    }
+  };
 
   return (
     <>
@@ -34,9 +38,7 @@ export function ProfileSelectionClient({ baseProfiles }: ProfileSelectionClientP
 
       <section className="ui-card mt-6">
         <h2 className="text-xl font-bold text-slate-900">プロフィール新規登録</h2>
-        <p className="ui-subtitle">
-          編集画面を開いて、新規登録を行えます。
-        </p>
+        <p className="ui-subtitle">編集画面を開いて、新規登録を行えます。</p>
         <Link href="/profiles/edit" className="ui-btn-primary mt-4">
           プロフィール新規登録画面を開く
         </Link>
@@ -62,12 +64,18 @@ export function ProfileSelectionClient({ baseProfiles }: ProfileSelectionClientP
                 ))}
               </div>
             ) : null}
-            <Link
-              href={`/profiles/${profile.id}`}
-              className="ui-btn-primary mt-4"
-            >
-              詳細を見る
-            </Link>
+            <div className="mt-4 flex gap-2">
+              <Link href={`/profiles/${profile.id}`} className="ui-btn-primary">
+                詳細を見る
+              </Link>
+              <button
+                type="button"
+                className="rounded-lg border border-red-300 px-3 py-1.5 text-sm font-semibold text-red-700 hover:bg-red-50"
+                onClick={() => handleDelete(profile.id, profile.name)}
+              >
+                削除
+              </button>
+            </div>
           </article>
         ))}
       </section>

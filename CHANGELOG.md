@@ -48,3 +48,42 @@
 - `npm run lint`
 - `npm run build`
 - `npm run db:migrate`（ローカル環境）
+
+## 2026-04-25（b8e1638 以降の更新）
+
+### 概要
+- プロフィールとToDoのデータ管理を、画面内のローカル状態中心から **API + PostgreSQL中心** に再整理。
+- Hydration エラーの出やすい構成を避け、サーバー取得データを初期表示に使う形へ移行。
+
+### 追加・変更点（前回push以降）
+- **プロフィールをDB管理へ移行**
+  - `profiles` テーブルを追加（`id`, `name`, `image_path`, `role`, `age`, `catch_copy`, `about`, `tags`, `sort_order` など）。
+  - マイグレーション追加: `drizzle/0002_condemned_thor_girl.sql`
+  - `src/features/profile/profile-service.ts` を追加し、初回シード + 取得ロジックを集約。
+  - 画面側は `getProfiles()` / `getProfile()` でサーバーから取得する構成に変更。
+
+- **プロフィールAPIを追加**
+  - `GET /api/profiles`（一覧）
+  - `POST /api/profiles`（新規作成）
+  - `PATCH /api/profiles/[id]`（更新）
+  - `DELETE /api/profiles/[id]`（削除）
+  - `app/api/profiles/...` に re-export ルートを追加し、`app/` 優先構成でも確実に解決されるよう調整。
+
+- **ToDoをDB API運用へ再切替**
+  - `TodoManagementTable` を API 連携方式に更新。
+  - `GET /api/todos?profileId=...` で読み込み、`POST/PATCH/DELETE /api/todos...` で更新。
+  - 表示IDは UUID の代わりに一覧No.（1,2,3...）で表示して可読性を改善。
+
+- **画面別の挙動改善**
+  - プロフィール選択画面: カードごとに削除ボタンを追加。
+  - プロフィール新規登録画面: API経由の登録に変更、登録中状態を表示。
+  - プロフィール詳細画面: API経由の更新/削除に変更し、更新後 `router.refresh()` で即反映。
+
+### 技術的な改善ポイント
+- 初期表示にサーバー取得データを使うことで、クライアント依存値（`localStorage`）による
+  SSR/CSR差分を抑制し、Hydration mismatch の再発リスクを低減。
+- APIルートを `app/api` で露出させることで、`src/app/api` 単体配置による404系トラブルを予防。
+
+### 確認済み
+- `npm run lint`
+- `npm run build`

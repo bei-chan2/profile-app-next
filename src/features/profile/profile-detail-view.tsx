@@ -1,12 +1,11 @@
 "use client";
 
 import type { CSSProperties } from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import type { Profile } from "@/features/profile/profile-data";
-import { loadProfiles, saveProfiles } from "@/features/profile/profile-storage";
 import { TodoManagementTable } from "@/features/todo/todo-management-table";
 
 function stagger(n: number): CSSProperties {
@@ -14,16 +13,15 @@ function stagger(n: number): CSSProperties {
 }
 
 type ProfileDetailViewProps = {
-  profileId: string;
-  baseProfiles: Profile[];
+  profile: Profile;
 };
 
-export function ProfileDetailView({ profileId, baseProfiles }: ProfileDetailViewProps) {
+export function ProfileDetailView({ profile }: ProfileDetailViewProps) {
   const router = useRouter();
-  const [profiles, setProfiles] = useState<Profile[]>(baseProfiles);
   const [message, setMessage] = useState("");
   const [isEditDeleteOpen, setIsEditDeleteOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [editForm, setEditForm] = useState({
     name: "",
     role: "",
@@ -35,102 +33,73 @@ export function ProfileDetailView({ profileId, baseProfiles }: ProfileDetailView
     tags: "",
   });
 
-  const displayProfile = useMemo(() => {
-    return profiles.find((profile) => profile.id === profileId) ?? null;
-  }, [profiles, profileId]);
-
-  useEffect(() => {
-    setProfiles(loadProfiles(baseProfiles));
-  }, [baseProfiles]);
-  const specialties = displayProfile?.specialties ?? [
+  const specialties = profile.specialties ?? [
     "ダイエット・体重管理",
     "筋トレ・ボディメイク",
     "健康維持・姿勢改善",
     "スポーツパフォーマンス向上",
   ];
-  const hobbies = displayProfile?.hobbies ?? [
-    "スノーボード",
-    "ジム・自重トレーニング",
-    "アウトドア・ハイキング",
-  ];
-  const credentials = displayProfile?.credentials ?? [
+  const hobbies = profile.hobbies ?? ["スノーボード", "ジム・自重トレーニング", "アウトドア・ハイキング"];
+  const credentials = profile.credentials ?? [
     "NSCA-CPT（全米ストレングス＆コンディショニング協会認定パーソナルトレーナー）",
     "薬学部卒業後医薬品開発職 → 独立してパーソナルトレーナーとして活動中",
   ];
 
-  if (!displayProfile) {
-    return (
-      <main className="mx-auto min-h-screen w-full max-w-3xl px-6 py-10">
-        <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <h1 className="text-2xl font-bold">プロフィールが見つかりません</h1>
-          <p className="mt-2 text-sm text-slate-600">
-            一覧に戻って、プロフィールを選択してください。
-          </p>
-          <Link
-            href="/profiles"
-            className="mt-4 inline-flex rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white"
-          >
-            プロフィール選択へ戻る
-          </Link>
-        </section>
-      </main>
-    );
-  }
-
   const formValues = {
-    name: editForm.name || displayProfile.name,
-    role: editForm.role || displayProfile.role,
-    age: editForm.age || displayProfile.age,
-    catchCopy: editForm.catchCopy || displayProfile.catchCopy,
-    about1: editForm.about1 || displayProfile.about[0] || "",
-    about2: editForm.about2 || displayProfile.about[1] || "",
-    about3: editForm.about3 || displayProfile.about[2] || "",
-    tags: editForm.tags || displayProfile.tags.join(", "),
+    name: editForm.name || profile.name,
+    role: editForm.role || profile.role,
+    age: editForm.age || profile.age,
+    catchCopy: editForm.catchCopy || profile.catchCopy,
+    about1: editForm.about1 || profile.about[0] || "",
+    about2: editForm.about2 || profile.about[1] || "",
+    about3: editForm.about3 || profile.about[2] || "",
+    tags: editForm.tags || profile.tags.join(", "),
   };
 
-  const handleUpdateProfile = () => {
-    const nextProfile: Profile = {
-      ...displayProfile,
-      name: formValues.name.trim() || displayProfile.name,
-      role: formValues.role.trim() || displayProfile.role,
-      age: formValues.age.trim() || displayProfile.age,
-      catchCopy: formValues.catchCopy.trim() || displayProfile.catchCopy,
-      about: [
-        formValues.about1.trim() || displayProfile.about[0] || "",
-        formValues.about2.trim() || displayProfile.about[1] || "",
-        formValues.about3.trim() || displayProfile.about[2] || "",
-      ],
-      tags: formValues.tags
-        .split(",")
-        .map((tag) => tag.trim())
-        .filter(Boolean),
-    };
+  const handleUpdateProfile = async () => {
+    setSubmitting(true);
+    try {
+      const res = await fetch(`/api/profiles/${profile.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: formValues.name.trim() || profile.name,
+          role: formValues.role.trim() || profile.role,
+          age: formValues.age.trim() || profile.age,
+          catchCopy: formValues.catchCopy.trim() || profile.catchCopy,
+          about: [
+            formValues.about1.trim() || profile.about[0] || "",
+            formValues.about2.trim() || profile.about[1] || "",
+            formValues.about3.trim() || profile.about[2] || "",
+          ],
+          tags: formValues.tags
+            .split(",")
+            .map((t) => t.trim())
+            .filter(Boolean),
+        }),
+      });
 
-    const nextProfiles = profiles.map((profile) => (profile.id === displayProfile.id ? nextProfile : profile));
-    setProfiles(nextProfiles);
-    saveProfiles(nextProfiles);
-    setEditForm({
-      name: "",
-      role: "",
-      age: "",
-      catchCopy: "",
-      about1: "",
-      about2: "",
-      about3: "",
-      tags: "",
-    });
-    setMessage("プロフィールを更新しました。");
-  };
-
-  const handleDeleteProfile = () => {
-    const confirmed = window.confirm(`「${displayProfile.name}」を削除しますか？`);
-    if (!confirmed) {
-      return;
+      if (res.ok) {
+        setEditForm({ name: "", role: "", age: "", catchCopy: "", about1: "", about2: "", about3: "", tags: "" });
+        setMessage("プロフィールを更新しました。");
+        router.refresh();
+      } else {
+        setMessage("更新に失敗しました。");
+      }
+    } finally {
+      setSubmitting(false);
     }
+  };
 
-    const nextProfiles = profiles.filter((profile) => profile.id !== displayProfile.id);
-    saveProfiles(nextProfiles);
-    router.push("/profiles");
+  const handleDeleteProfile = async () => {
+    if (!window.confirm(`「${profile.name}」を削除しますか？`)) return;
+
+    const res = await fetch(`/api/profiles/${profile.id}`, { method: "DELETE" });
+    if (res.ok) {
+      router.push("/profiles");
+    } else {
+      setMessage("削除に失敗しました。");
+    }
   };
 
   return (
@@ -142,7 +111,7 @@ export function ProfileDetailView({ profileId, baseProfiles }: ProfileDetailView
       <header className="site-header" role="banner">
         <nav className="site-nav" aria-label="ページ内ナビゲーション">
           <a href="#hero" className="site-nav__brand">
-            {displayProfile.name}
+            {profile.name}
           </a>
           <button
             type="button"
@@ -197,30 +166,30 @@ export function ProfileDetailView({ profileId, baseProfiles }: ProfileDetailView
             <figure className="hero__figure">
               <Image
                 className="hero__photo"
-                src={displayProfile.imagePath ?? "/images/profile_image.jpg"}
+                src={profile.imagePath ?? "/images/profile_image.jpg"}
                 width={300}
                 height={300}
-                alt={`${displayProfile.name}のプロフィール写真（プレースホルダー）`}
+                alt={`${profile.name}のプロフィール写真`}
                 priority
               />
             </figure>
             <div className="hero__text">
-              <p className="hero__role">{displayProfile.role}</p>
-              <h1 className="hero__name">{displayProfile.name}</h1>
-              <p className="hero__catch">{displayProfile.catchCopy}</p>
+              <p className="hero__role">{profile.role}</p>
+              <h1 className="hero__name">{profile.name}</h1>
+              <p className="hero__catch">{profile.catchCopy}</p>
               <dl className="hero__meta">
                 <div className="hero__meta-row">
                   <dt>年齢</dt>
-                  <dd>{displayProfile.age}</dd>
+                  <dd>{profile.age}</dd>
                 </div>
                 <div className="hero__meta-row">
                   <dt>職業</dt>
-                  <dd>{displayProfile.role}</dd>
+                  <dd>{profile.role}</dd>
                 </div>
               </dl>
-              {displayProfile.tags.length > 0 ? (
+              {profile.tags.length > 0 ? (
                 <div className="mt-4 flex flex-wrap justify-center gap-2 md:justify-start">
-                  {displayProfile.tags.map((tag, index) => (
+                  {profile.tags.map((tag, index) => (
                     <span key={`${tag}-${index}`} className="rounded-full bg-white px-3 py-1 text-xs text-slate-700">
                       #{tag}
                     </span>
@@ -238,19 +207,15 @@ export function ProfileDetailView({ profileId, baseProfiles }: ProfileDetailView
               <span className="section__title-ja">自己紹介</span>
             </h2>
             <div className="prose">
-              {displayProfile.about.slice(0, 2).map((line) => (
+              {profile.about.slice(0, 2).map((line) => (
                 <p key={line}>{line}</p>
               ))}
-              <p className="prose__highlight">{displayProfile.about[2]}</p>
+              <p className="prose__highlight">{profile.about[2]}</p>
             </div>
           </div>
         </section>
 
-        <section
-          id="specialties"
-          className="section section--alt section-animate"
-          style={stagger(2)}
-        >
+        <section id="specialties" className="section section--alt section-animate" style={stagger(2)}>
           <div className="section__inner">
             <h2 className="section__title">
               <span className="section__title-en">Focus</span>
@@ -290,11 +255,7 @@ export function ProfileDetailView({ profileId, baseProfiles }: ProfileDetailView
           </div>
         </section>
 
-        <section
-          id="credentials"
-          className="section section--alt section-animate"
-          style={stagger(4)}
-        >
+        <section id="credentials" className="section section--alt section-animate" style={stagger(4)}>
           <div className="section__inner">
             <h2 className="section__title">
               <span className="section__title-en">Background</span>
@@ -311,11 +272,7 @@ export function ProfileDetailView({ profileId, baseProfiles }: ProfileDetailView
           </div>
         </section>
 
-        <TodoManagementTable
-          profileId={displayProfile.id}
-          profileName={displayProfile.name}
-          defaultTodos={displayProfile.todoDefaults}
-        />
+        <TodoManagementTable profileId={profile.id} profileName={profile.name} />
 
         {isEditDeleteOpen ? (
           <section id="edit-delete" className="section section--alt section-animate" style={stagger(5)}>
@@ -327,49 +284,49 @@ export function ProfileDetailView({ profileId, baseProfiles }: ProfileDetailView
               <div className="grid gap-3 md:grid-cols-2">
                 <input
                   value={formValues.name}
-                  onChange={(event) => setEditForm((prev) => ({ ...prev, name: event.target.value }))}
+                  onChange={(e) => setEditForm((prev) => ({ ...prev, name: e.target.value }))}
                   className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
                   placeholder="名前"
                 />
                 <input
                   value={formValues.role}
-                  onChange={(event) => setEditForm((prev) => ({ ...prev, role: event.target.value }))}
+                  onChange={(e) => setEditForm((prev) => ({ ...prev, role: e.target.value }))}
                   className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
                   placeholder="職業"
                 />
                 <input
                   value={formValues.age}
-                  onChange={(event) => setEditForm((prev) => ({ ...prev, age: event.target.value }))}
+                  onChange={(e) => setEditForm((prev) => ({ ...prev, age: e.target.value }))}
                   className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
                   placeholder="年齢"
                 />
                 <input
                   value={formValues.catchCopy}
-                  onChange={(event) => setEditForm((prev) => ({ ...prev, catchCopy: event.target.value }))}
+                  onChange={(e) => setEditForm((prev) => ({ ...prev, catchCopy: e.target.value }))}
                   className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
                   placeholder="キャッチコピー"
                 />
                 <textarea
                   value={formValues.about1}
-                  onChange={(event) => setEditForm((prev) => ({ ...prev, about1: event.target.value }))}
+                  onChange={(e) => setEditForm((prev) => ({ ...prev, about1: e.target.value }))}
                   className="min-h-20 rounded-lg border border-slate-300 px-3 py-2 text-sm md:col-span-2"
                   placeholder="自己紹介 1"
                 />
                 <textarea
                   value={formValues.about2}
-                  onChange={(event) => setEditForm((prev) => ({ ...prev, about2: event.target.value }))}
+                  onChange={(e) => setEditForm((prev) => ({ ...prev, about2: e.target.value }))}
                   className="min-h-20 rounded-lg border border-slate-300 px-3 py-2 text-sm md:col-span-2"
                   placeholder="自己紹介 2"
                 />
                 <textarea
                   value={formValues.about3}
-                  onChange={(event) => setEditForm((prev) => ({ ...prev, about3: event.target.value }))}
+                  onChange={(e) => setEditForm((prev) => ({ ...prev, about3: e.target.value }))}
                   className="min-h-20 rounded-lg border border-slate-300 px-3 py-2 text-sm md:col-span-2"
                   placeholder="自己紹介 3"
                 />
                 <input
                   value={formValues.tags}
-                  onChange={(event) => setEditForm((prev) => ({ ...prev, tags: event.target.value }))}
+                  onChange={(e) => setEditForm((prev) => ({ ...prev, tags: e.target.value }))}
                   className="rounded-lg border border-slate-300 px-3 py-2 text-sm md:col-span-2"
                   placeholder="タグ（カンマ区切り）"
                 />
@@ -378,9 +335,10 @@ export function ProfileDetailView({ profileId, baseProfiles }: ProfileDetailView
                 <button
                   type="button"
                   onClick={handleUpdateProfile}
-                  className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700"
+                  disabled={submitting}
+                  className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700 disabled:opacity-50"
                 >
-                  更新
+                  {submitting ? "更新中..." : "更新"}
                 </button>
                 <button
                   type="button"
@@ -406,7 +364,7 @@ export function ProfileDetailView({ profileId, baseProfiles }: ProfileDetailView
       </nav>
 
       <footer className="site-footer section-animate" style={stagger(6)}>
-        <p className="site-footer__copy">&copy; 2026 {displayProfile.name}</p>
+        <p className="site-footer__copy">&copy; 2026 {profile.name}</p>
       </footer>
     </>
   );
